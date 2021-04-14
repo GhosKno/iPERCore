@@ -11,3 +11,6 @@ results
 *venv
 *.pytest
 *debug*
+third_party/
+log.txt
+inference_folder.sh
