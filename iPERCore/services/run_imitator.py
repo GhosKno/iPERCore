@@ -2,6 +2,7 @@
 
 import os
 import glob
+import numpy as np
 
 from iPERCore.models import ModelsFactory
 from iPERCore.services.preprocess import preprocess
@@ -53,6 +54,12 @@ def get_src_info_for_inference(opt, vid_info):
 
     return src_info_for_inference
 
+def random_affine_smpls(smpls, scale):
+    # smpls: n*85 [:, 3,72,10]
+    n = smpls.shape[0]
+    random_pose = np.random.uniform(-scale, scale, (n, 72))
+    smpls[:, 3:-10] += random_pose
+    return smpls
 
 def imitate(opt):
     """
@@ -111,7 +118,7 @@ def imitate(opt):
             """
             meta_input:
                 path: /p300/tpami/neuralAvatar/references/videos/bantangzhuyi_1.mp4
-                bg_path: 
+                bg_path:
                 name: bantangzhuyi_1
                 audio: /p300/tpami/neuralAvatar/references/videos/bantangzhuyi_1.mp3
                 fps: 30.02
@@ -128,6 +135,7 @@ def imitate(opt):
             ref_info = ref_proc_info.convert_to_ref_info()
             ref_imgs_paths = ref_info["images"]
             ref_smpls = ref_info["smpls"]
+            # ref_smpls = random_affine_smpls(ref_smpls, opt.random_scale)
             ref_smpls = add_hands_params_to_smpl(ref_smpls, imitator.body_rec.np_hands_mean)
 
             meta_output = MetaOutput(meta_src, meta_ref)
