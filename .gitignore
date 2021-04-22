@@ -7,7 +7,7 @@ assets/pretrains
 assets/samples
 assets/checkpoints.zip
 assets/executables.zip
-results
+results*
 *venv
 *.pytest
 *debug*
