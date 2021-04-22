@@ -227,7 +227,8 @@ class MetaProcess(object):
             if not os.path.exists(audio_path):
                 extract_audio_from_video(path, audio_path)
 
-            fps = get_video_fps(path, ret_type="float")
+            # fps = get_video_fps(path, ret_type="float")
+            fps = 30.0
 
             meta_input["audio"] = audio_path
             meta_input.fps = fps
