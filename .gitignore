@@ -13,4 +13,4 @@ results*
 *debug*
 third_party/
 log.txt
-inference_folder.sh
+inference_*.sh
