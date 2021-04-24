@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 import glob
+import random
 
 from iPERCore.services.options.options_setup import setup
 from iPERCore.services.run_imitator import run_imitator
@@ -116,6 +117,7 @@ if __name__ == "__main__":
     # run imitator
     from iPERCore.services.options.options_inference import InferenceOptions
     ref_videos = glob.glob('/data/jupyter/dy_dance_video/*/*/*.mp4')
+    random.shuffle(ref_videos)
     OPT = InferenceOptions()
     if not OPT._initialized:
         OPT.initialize()

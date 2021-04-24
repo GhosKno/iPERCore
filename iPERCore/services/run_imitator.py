@@ -16,6 +16,8 @@ from iPERCore.tools.utils.filesio.cv_utils import load_parse, read_cv2_img, norm
 from iPERCore.tools.utils.filesio.persistence import clear_dir
 from iPERCore.tools.utils.multimedia.video import fuse_source_reference_output, fuse_src_ref_multi_outputs
 
+from scipy.spatial.transform import Rotation as R
+
 
 def get_src_info_for_inference(opt, vid_info):
     img_dir = vid_info["img_dir"]
@@ -61,7 +63,7 @@ def random_affine_smpls(smpls, scale):
     smpls[:, 3:-10] += random_pose
     return smpls
 
-def random_affine_smpls_with_weights(smpls, w1=0.05, w2=0.15, w3=0.25):
+def random_affine_smpls_with_weights(smpls, w1=0.05, w2=0.15, w3=0.3):
     inds_l1 = (np.array([0,1,2,3,6,9]).repeat(3).reshape([-1, 3]) * 3 + np.array([0,1,2])).reshape(-1)
     inds_l2 = (np.array([4,5,12,13,14,15,16,17]).repeat(3).reshape([-1, 3]) * 3 + np.array([0, 1, 2])).reshape(-1)
 
@@ -69,6 +71,27 @@ def random_affine_smpls_with_weights(smpls, w1=0.05, w2=0.15, w3=0.25):
     random_pose[:, inds_l1] = np.random.uniform(-w1, w1, random_pose[:, inds_l1].shape)
     random_pose[:, inds_l2] = np.random.uniform(-w2, w2, random_pose[:, inds_l2].shape)
     smpls[:, 3:-10] += random_pose
+    return smpls
+
+def add_view_effect(smpls, view_dir):
+    """
+
+    Args:
+        smpls (np.ndarray): (n, 85)
+        view_dir (float):
+
+    Returns:
+        smpls (np.ndarray): (n, 85)
+    """
+    length = len(smpls)
+
+    r = R.from_euler("xyz", [0, view_dir, 0], degrees=True)
+
+    for i in range(length):
+        orig_r = R.from_rotvec(smpls[i, 3:6])
+        cur_r = (r * orig_r).as_rotvec()
+        smpls[i, 3:6] = cur_r
+
     return smpls
 
 
@@ -253,9 +276,11 @@ def imitate_with_multi_random_pose(opt):
             ref_imgs_paths = ref_info["images"]
             ref_smpls = ref_info["smpls"]
             multi_out_img_paths = []
-            for k in range(5):
+            for k in range(6):
                 if k == 0:
                     ref_smpls_tmp = ref_smpls
+                elif k <= 2:
+                    ref_smpls_tmp = add_view_effect(ref_smpls.copy(), -10 if k == 1 else 10)
                 else:
                     ref_smpls_tmp = random_affine_smpls_with_weights(ref_smpls.copy())
                 ref_smpls_tmp = add_hands_params_to_smpl(ref_smpls_tmp, imitator.body_rec.np_hands_mean)
@@ -266,7 +291,7 @@ def imitate_with_multi_random_pose(opt):
                 if len(ref_smpls_tmp) > 10:
                     ref_smpls_tmp = temporal_smooth_smpls(ref_smpls_tmp, pose_fc=meta_output.pose_fc, cam_fc=meta_output.cam_fc)
 
-                out_imgs_dir = clear_dir(meta_output.imitation_dir+'_{}'.format(str(k)))
+                out_imgs_dir = clear_dir(meta_output.imitation_dir+'/{}'.format(str(k)))
 
                 outputs = imitator.inference(tgt_paths=ref_imgs_paths, tgt_smpls=ref_smpls_tmp,
                                              cam_strategy=opt.cam_strategy, output_dir=out_imgs_dir,
