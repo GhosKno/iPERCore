@@ -129,7 +129,7 @@ caption = "this is a fake video, synthesized by impersonator++"
 ## The configuration of Preprocessing.
 
 # Set the max number of Preprocessor Instance for each GPU.
-MAX_PER_GPU_PROCESS = 1
+MAX_PER_GPU_PROCESS = 2
 
 has_detector = true
 

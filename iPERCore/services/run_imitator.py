@@ -315,6 +315,158 @@ def imitate_with_multi_random_pose(opt):
     print("Step 3: running imitator done.")
     return all_meta_outputs
 
+from multiprocessing import Queue, Process
+from multiprocessing import Manager
+
+class RandomPoseImitateConsumer(Process):
+    def __init__(self, queue, gpu_id, opt, meta_src):
+        self.queue = queue
+        self.gpu_id = gpu_id
+        self.opt = opt
+        self.is_run = True
+        self.meta_src = meta_src
+
+        Process.__init__(self, name="RandomPoseImitateConsumer_{}".format(gpu_id))
+
+
+    def run(self) -> None:
+        os.environ["CUDA_DEVICES_ORDER"] = "PCI_BUS_ID"
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(self.gpu_id)
+
+        imitator = ModelsFactory.get_by_name("imitator", self.opt)
+
+        src_proc_info = ProcessInfo(self.meta_src)
+        src_proc_info.deserialize()
+
+        src_info = src_proc_info.convert_to_src_info(num_source=self.opt.num_source)
+        src_info_for_inference = get_src_info_for_inference(self.opt, src_info)
+
+        imitator.source_setup(
+            src_path=src_info_for_inference["paths"],
+            src_smpl=src_info_for_inference["smpls"],
+            masks=src_info_for_inference["masks"],
+            bg_img=src_info_for_inference["bg"],
+            offsets=src_info_for_inference["offsets"],
+            links_ids=src_info_for_inference["links"],
+            visualizer=None
+        )
+        all_meta_outputs = []
+
+        while self.is_run and not self.queue.empty():
+            try:
+                meta_ref = self.queue.get()
+                ref_proc_info = ProcessInfo(meta_ref)
+                ref_proc_info.deserialize()
+
+                ref_info = ref_proc_info.convert_to_ref_info()
+                ref_imgs_paths = ref_info["images"]
+                ref_smpls = ref_info["smpls"]
+                multi_out_img_paths = []
+                for k in range(6):
+                    if k == 0:
+                        ref_smpls_tmp = ref_smpls
+                    elif k <= 2:
+                        ref_smpls_tmp = add_view_effect(ref_smpls.copy(), -10 if k == 1 else 10)
+                    else:
+                        ref_smpls_tmp = random_affine_smpls_with_weights(ref_smpls.copy())
+                    ref_smpls_tmp = add_hands_params_to_smpl(ref_smpls_tmp, imitator.body_rec.np_hands_mean)
+
+                    meta_output = MetaOutput(self.meta_src, meta_ref)
+
+                    # if there are more than 10 frames, then we will use temporal smooth of smpl.
+                    if len(ref_smpls_tmp) > 10:
+                        ref_smpls_tmp = temporal_smooth_smpls(ref_smpls_tmp, pose_fc=meta_output.pose_fc,
+                                                              cam_fc=meta_output.cam_fc)
+
+                    out_imgs_dir = clear_dir(meta_output.imitation_dir + '/{}'.format(str(k)))
+
+                    outputs = imitator.inference(tgt_paths=ref_imgs_paths, tgt_smpls=ref_smpls_tmp,
+                                                 cam_strategy=self.opt.cam_strategy, output_dir=out_imgs_dir,
+                                                 visualizer=None, verbose=True)
+                    multi_out_img_paths.append(outputs)
+                multi_out_img_paths = [[o[i] for o in multi_out_img_paths] for i in range(len(multi_out_img_paths[0]))]
+                fuse_src_ref_multi_outputs(
+                    meta_output.imitation_mp4, src_info_for_inference["paths"],
+                    ref_imgs_paths,
+                    multi_out_img_paths,
+                    # sorted(glob.glob(os.path.join(meta_output.imitation_dir, "pred_*"))),
+                    fps=meta_output.fps,
+                    image_size=self.opt.image_size, pool_size=self.opt.num_workers
+                )
+
+                all_meta_outputs.append(meta_output)
+
+            except Exception("model error!") as e:
+                print(e.message)
+
+        for meta_output in all_meta_outputs:
+            print(meta_output)
+
+    def terminate(self):
+        self.is_run = False
+
+def imitate_with_multi_random_pose_multithread(opt):
+    """
+
+    Args:
+        opt:
+
+    Returns:
+        all_meta_outputs (list of MetaOutput):
+
+    """
+
+    print("Step 3: running imitator.")
+
+    if opt.ip:
+        from iPERCore.tools.utils.visualizers.visdom_visualizer import VisdomVisualizer
+        visualizer = VisdomVisualizer(env=opt.model_id, ip=opt.ip, port=opt.port)
+    else:
+        visualizer = None
+
+    # set imitator
+    # imitator = ModelsFactory.get_by_name("imitator", opt)
+
+    meta_src_proc = opt.meta_data["meta_src"]
+    meta_ref_proc = opt.meta_data["meta_ref"]
+
+    all_meta_outputs = []
+    for i, meta_src in enumerate(meta_src_proc):
+        """
+        meta_input:
+                path: /p300/tpami/neuralAvatar/sources/fange_1/fange_1_ns=2
+                bg_path: /p300/tpami/neuralAvatar/sources/fange_1/IMG_7225.JPG
+                name: fange_1
+        primitives_dir: ../tests/debug/primitives/fange_1
+        processed_dir: ../tests/debug/primitives/fange_1/processed
+        vid_info_path: ../tests/debug/primitives/fange_1/processed/vid_info.pkl
+        """
+        que = Manager().Queue()
+        for j, meta_ref in enumerate(meta_ref_proc):
+            que.put(meta_ref)
+        need_to_process= len(meta_ref_proc)
+        MAX_PER_GPU_PROCESS = opt.Preprocess.MAX_PER_GPU_PROCESS
+        per_gpu_process = int(np.floor(need_to_process / len(opt.gpu_ids)))
+        used_gpus = opt.gpu_ids * min(MAX_PER_GPU_PROCESS, per_gpu_process)
+
+        consumers = []
+        for gpu_id in used_gpus:
+            consumer = RandomPoseImitateConsumer(
+                que, gpu_id, opt, meta_src
+            )
+            consumers.append(consumer)
+
+        # all processors start
+        for consumer in consumers:
+            consumer.start()
+
+        # all processors join
+        for consumer in consumers:
+            consumer.join()
+
+    print("Step 3: running imitator done.")
+    return all_meta_outputs
+
 def run_imitator(opt):
     # 1. prepreocess
     successful = preprocess(opt)
@@ -324,7 +476,8 @@ def run_imitator(opt):
         personalize(opt)
         # 3. imitate
         # all_meta_outputs = imitate(opt)
-        all_meta_outputs = imitate_with_multi_random_pose(opt)
+        # all_meta_outputs = imitate_with_multi_random_pose(opt)
+        all_meta_outputs = imitate_with_multi_random_pose_multithread(opt)
     else:
         all_meta_outputs = []
 
