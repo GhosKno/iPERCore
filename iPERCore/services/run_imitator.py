@@ -3,6 +3,7 @@
 import os
 import glob
 import numpy as np
+import random
 
 from iPERCore.models import ModelsFactory
 from iPERCore.services.preprocess import preprocess
@@ -276,11 +277,11 @@ def imitate_with_multi_random_pose(opt):
             ref_imgs_paths = ref_info["images"]
             ref_smpls = ref_info["smpls"]
             multi_out_img_paths = []
-            for k in range(6):
+            for k in range(3):
                 if k == 0:
                     ref_smpls_tmp = ref_smpls
-                elif k <= 2:
-                    ref_smpls_tmp = add_view_effect(ref_smpls.copy(), -10 if k == 1 else 10)
+                elif k == 1:
+                    ref_smpls_tmp = add_view_effect(ref_smpls.copy(), random.randint(-20,20))
                 else:
                     ref_smpls_tmp = random_affine_smpls_with_weights(ref_smpls.copy())
                 ref_smpls_tmp = add_hands_params_to_smpl(ref_smpls_tmp, imitator.body_rec.np_hands_mean)
@@ -362,11 +363,11 @@ class RandomPoseImitateConsumer(Process):
                 ref_imgs_paths = ref_info["images"]
                 ref_smpls = ref_info["smpls"]
                 multi_out_img_paths = []
-                for k in range(6):
+                for k in range(3):
                     if k == 0:
                         ref_smpls_tmp = ref_smpls
-                    elif k <= 2:
-                        ref_smpls_tmp = add_view_effect(ref_smpls.copy(), -10 if k == 1 else 10)
+                    elif k == 1:
+                        ref_smpls_tmp = add_view_effect(ref_smpls.copy(), random.randint(-20,20))
                     else:
                         ref_smpls_tmp = random_affine_smpls_with_weights(ref_smpls.copy())
                     ref_smpls_tmp = add_hands_params_to_smpl(ref_smpls_tmp, imitator.body_rec.np_hands_mean)

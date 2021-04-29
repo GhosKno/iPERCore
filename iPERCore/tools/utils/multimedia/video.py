@@ -256,6 +256,23 @@ def fuse_four_images(img_paths, image_size):
     fuse_img = np.concatenate([fuse_img_1, fuse_img_2], axis=1)
     return fuse_img
 
+def fuse_six_images(img_paths, image_size):
+    """
+
+    Args:
+        img_paths (list of str):
+        image_size (int):
+
+    Returns:
+        fuse_img (np.ndarray): (image_size // 2, image_size, 3), BGR channel space, in the range of [0, 255], np.uint8.
+    """
+
+    fuse_img_1 = fuse_four_images(img_paths[0:4], image_size)
+    fuse_img_2 = fuse_two_images(img_paths[4:6], image_size)
+
+    fuse_img = np.concatenate([fuse_img_1, fuse_img_2], axis=1)
+    return fuse_img
+
 
 def fuse_eight_images(img_paths, image_size):
     """
@@ -291,8 +308,8 @@ def fuse_source(all_src_img_paths, image_size=512):
     ns = len(all_src_img_paths)
 
     # TODO, currently it only supports, 1, 2, 4, 8 number of source images.
-    assert ns in [1, 2, 4, 8], "{} must be in [1, 2, 4, 8], currently it only supports, " \
-                               "1, 2, 4, 8 number of source images."
+    assert ns in [1, 2, 4, 6, 8], "{} must be in [1, 2, 4, 6, 8], currently it only supports, " \
+                               "1, 2, 4, 6, 8 number of source images."
 
     if ns == 1:
         fuse_img = load_image(all_src_img_paths[0], image_size)
@@ -303,12 +320,15 @@ def fuse_source(all_src_img_paths, image_size=512):
     elif ns == 4:
         fuse_img = fuse_four_images(all_src_img_paths, image_size)
 
+    elif ns == 6:
+        fuse_img = fuse_six_images(all_src_img_paths, image_size)
+
     elif ns == 8:
         fuse_img = fuse_eight_images(all_src_img_paths, image_size)
 
     else:
-        raise ValueError("{} must be in [1, 2, 4, 8], currently it only supports, "
-                         "1, 2, 4, 8 number of source images.")
+        raise ValueError("{} must be in [1, 2, 4, 6, 8], currently it only supports, "
+                         "1, 2, 4, 6, 8 number of source images.")
 
     return fuse_img
 
