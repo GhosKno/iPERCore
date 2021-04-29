@@ -23,6 +23,7 @@ parser.add_argument("--image_size", type=int, default=512, help="the image size.
 parser.add_argument("--num_source", type=int, default=2, help="the number of sources.")
 parser.add_argument("--random_scale", type=float, default=0.0, help="the number of sources.")
 parser.add_argument("--output_dir", type=str, default="./results", help="the output directory.")
+parser.add_argument("--oss_base_dir", type=str, default="s3://czj-oss/data/iPERcore_imitations/", help="the nori data output directory.")
 parser.add_argument("--assets_dir", type=str, default="./assets",
                     help="the assets directory. This is very important, and there are the configurations and "
                          "the all pre-trained checkpoints")
@@ -115,21 +116,14 @@ args.cfg_path = osp.join(work_asserts_dir, "configs", "deploy.toml")
 
 if __name__ == "__main__":
     # run imitator
-    from iPERCore.services.options.options_inference import InferenceOptions
-    ref_videos = glob.glob('/data/jupyter/dy_dance_video/*/*/*.mp4')
-    random.shuffle(ref_videos)
-    OPT = InferenceOptions()
-    if not OPT._initialized:
-        OPT.initialize()
-    OPT.is_train = OPT.is_train
-    OPT = OPT._parser.parse_args()
+    ref_videos = glob.glob('/data/jupyter/ntu_frames/*/*/*.mp4')
     ref_paths = []
     for p in ref_videos:
         label = p.split('/')[-2]
         video_id = os.path.basename(p)[:-4]
         ref_paths.append('path?={},name?={},pose_fc?=300'.format(p, video_id + '#{}'.format(label)))
-    OPT.ref_path = '|'.join(ref_paths)
-    cfg = setup(OPT)
+    args.ref_path = '|'.join(ref_paths)
+    cfg = setup(args)
     run_imitator(cfg)
 
 # # or use the system call wrapper

@@ -24,6 +24,7 @@ ip = ""
 port = 0
 
 random_scale = 0.1
+oss_oss_base_dir = 's3://czj-oss/data/iPERcore_imitations/'
 
 # Set the number of cores for Image Cropper, and 3D-Pose Estimation.
 # If num_workers is 0, then we will not use multi-processing.
