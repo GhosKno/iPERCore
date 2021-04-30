@@ -78,6 +78,16 @@ def random_affine_smpls_with_weights(smpls, w1=0.05, w2=0.15, w3=0.3):
     smpls[:, 3:-10] += random_pose
     return smpls
 
+def random_affine_smpls_with_weights_smooth(smpls, w1=0.05, w2=0.15, w3=0.3):
+    inds_l1 = (np.array([0,1,2,3,6,9]).repeat(3).reshape([-1, 3]) * 3 + np.array([0,1,2])).reshape(-1)
+    inds_l2 = (np.array([4,5,12,13,14,15,16,17]).repeat(3).reshape([-1, 3]) * 3 + np.array([0, 1, 2])).reshape(-1)
+
+    random_pose = np.random.uniform(-w3, w3, smpls[0, 3:-10].shape)
+    random_pose[inds_l1] = np.random.uniform(-w1, w1, random_pose[inds_l1].shape)
+    random_pose[inds_l2] = np.random.uniform(-w2, w2, random_pose[inds_l2].shape)
+    smpls[:, 3:-10] += random_pose[None]
+    return smpls
+
 def add_view_effect(smpls, view_dir):
     """
 
@@ -384,11 +394,13 @@ class RandomPoseImitateConsumer(Process):
                 ref_imgs_paths = ref_info["images"]
                 ref_smpls = ref_info["smpls"]
                 multi_out_img_paths = []
-                for k in range(3):
+                for k in range(4):
                     if k == 0:
                         ref_smpls_tmp = ref_smpls
                     elif k == 1:
                         ref_smpls_tmp = add_view_effect(ref_smpls.copy(), random.randint(-20,20))
+                    elif k == 2:
+                        ref_smpls_tmp = random_affine_smpls_with_weights_smooth(ref_smpls.copy())
                     else:
                         ref_smpls_tmp = random_affine_smpls_with_weights(ref_smpls.copy())
                     ref_smpls_tmp = add_hands_params_to_smpl(ref_smpls_tmp, imitator.body_rec.np_hands_mean)
