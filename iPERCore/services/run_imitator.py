@@ -4,6 +4,8 @@ import os
 import glob
 import numpy as np
 import random
+import shutil
+import pickle
 
 from iPERCore.models import ModelsFactory
 from iPERCore.services.preprocess import preprocess
@@ -20,7 +22,6 @@ from iPERCore.tools.utils.multimedia.video import fuse_source_reference_output, 
 from scipy.spatial.transform import Rotation as R
 
 from iPERCore.tools.utils.nori import build_single_video_nori
-import pickle
 
 
 def get_src_info_for_inference(opt, vid_info):
@@ -335,7 +336,7 @@ class RandomPoseImitateConsumer(Process):
     def build_nori(self, multi_out_img_paths, pkl_path, opt):
         nori_results = []
         for i, out_img_paths in enumerate(multi_out_img_paths):
-            ID = os.path.dirname(out_img_paths).split('/')[-1].split('-')[-1]
+            ID = os.path.dirname(out_img_paths[0]).split('/')[-2].split('-')[-1]
             nori_path = os.path.join(opt.oss_base_dir, '{}_{}.nori'.format(ID, str(i)))
             nori_dict = dict(
                 ID=ID,
@@ -345,6 +346,8 @@ class RandomPoseImitateConsumer(Process):
 
             nori_dict = build_single_video_nori(out_img_paths, nori_dict, nori_path)
             nori_results.append(nori_dict)
+            shutil.rmtree(os.path.dirname(out_img_paths[0]))
+
         with open(pkl_path, 'wb') as f:
             pickle.dump(nori_results, f, 1)
 

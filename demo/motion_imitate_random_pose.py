@@ -116,9 +116,10 @@ args.cfg_path = osp.join(work_asserts_dir, "configs", "deploy.toml")
 
 if __name__ == "__main__":
     # run imitator
-    ref_videos = glob.glob('/data/jupyter/ntu_frames/*/*/*.mp4')
+    ref_videos = glob.glob('/data/jupyter/ntu/ntu_frames/*/*/*.avi')
+    random.shuffle(ref_videos)
     ref_paths = []
-    for p in ref_videos:
+    for p in ref_videos[:10]:
         label = p.split('/')[-2]
         video_id = os.path.basename(p)[:-4]
         ref_paths.append('path?={},name?={},pose_fc?=300'.format(p, video_id + '#{}'.format(label)))
